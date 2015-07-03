@@ -297,7 +297,7 @@ Program's entry point
 > main = do
 >         [filename, isa] <- getArgs
 >         decl_list <- parse_ml_sig filename
->         mapM_ print decl_list
+>         --mapM_ print decl_list
 >         let ffi_decl_list = fmap (ffi_decl_str isa) decl_list
 >         writeFile (isa++"_ffi.sml") (intercalate "\n" $ filter (not . null) ffi_decl_list)
 >         --mapM_ putStrLn $ intersperse "" ffi_decl

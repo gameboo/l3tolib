@@ -129,6 +129,10 @@ Declarations can be a supported Val declaration, or any other input that will be
 SML FFI code generation
 =======================
 
+The following functions are a set of helpers to convert an L3 generated SML
+type to a valid SML FFI type. Only the standard FFI types (except the pointer
+types) and the BitsN type are supported.
+
 > l3_to_ffi_type :: Type -> Type
 > l3_to_ffi_type t = case t of
 >     Name "BitsN.nbit"   -> Name "Word64.word"
@@ -182,10 +186,17 @@ SML FFI code generation
 > isValidRetFFIType t = case t of
 >     Tuple ts            -> False
 >     _                   -> isValidFFIType t
-> 
+
+Simple helper to convert an SML identifier containing a "'" character into a
+valid SML FFI symbol name by replacing "'"'s with "_"'s.
+
 > ffi_name :: String -> String
 > ffi_name s = [if x == '\'' then '_' else x | x <- s]
-> 
+
+Code generation for symbols (currently not working)
+---------------------------------------------------
+
+> {-
 > ffi_symbol_public_str :: String -> String -> Type -> String
 > ffi_symbol_public_str isa n t
 >     | isValidFFIType t = intercalate "\n" [
@@ -193,7 +204,9 @@ SML FFI code generation
 >         "_symbol \"" ++ isa ++ "_" ++ ffi_name n ++ "\" public : (unit -> " ++ show t ++ ") * (" ++ show t ++ " -> unit);"
 >         ]
 >     | otherwise = "(* Unsupported sml ffi symbol for " ++ n ++ " - unsupported type "++ show t ++" *)"
-> 
+> -}
+>
+> {-
 > ffi_symbol_external_str :: String -> String -> Type -> String
 > ffi_symbol_external_str isa n t
 >     | isValidFFIType t = intercalate "\n" [
@@ -201,7 +214,16 @@ SML FFI code generation
 >         "_symbol \"" ++ isa ++ "_" ++ ffi_name n ++ "\" external : (unit -> " ++ show t ++ ") * (" ++ show t ++ " -> unit);"
 >         ]
 >     | otherwise = "(* Unsupported sml ffi symbol for " ++ n ++ " - unsupported type "++ show t ++" *)"
-> 
+> -}
+
+Code generation for imported symbols
+------------------------------------
+
+This code will generate an import FFI declaration. The symbol imported is not
+implemented, but simply declared in the L3 ISA model sources. It is expected to
+be implemented when linking against a library generated using the produced FFI
+declarations.
+
 > ffi_import_str :: String -> String -> [Type] -> String
 > ffi_import_str isa fname [arg_list, ret_type]
 >     | all isValidArgFFIType arg_types && isValidRetFFIType ret_type && not (null arg_types) = intercalate "\n" [
@@ -222,7 +244,14 @@ SML FFI code generation
 >                 Name x      -> [Name x]
 >                 _           -> []
 > ffi_import_str isa fname ftype = "(* Unsupported sml ffi import for " ++ isa ++ "_" ++ fname ++ " of type " ++ show ftype ++ " *)"
-> 
+
+Code generation for exported symbols
+------------------------------------
+
+This code will generate an export FFI declaration. The symbol exported is
+implemented in the L3 ISA model sources, and will be callable from code linking
+against a library generated using the produced FFI declarations.
+
 > ffi_export_str :: String -> String -> [Type] -> String
 > ffi_export_str isa fname [arg_list, ret_type]
 >     | all isValidArgFFIType arg_types && isValidRetFFIType ret_type && not (null arg_types) = intercalate "\n" [
@@ -242,7 +271,10 @@ SML FFI code generation
 >                 Name x      -> [Name x]
 >                 _           -> []
 > ffi_export_str isa fname ftype = "(* Unsupported sml ffi export for " ++ isa ++ "_" ++ fname ++ " of type " ++ show ftype ++ " *)"
-> 
+
+Identifying supported L3 declarations
+-------------------------------------
+
 > ffi_decl_str :: String -> Decl -> String
 > ffi_decl_str isa (Val n t) = case t of
 >     Ap [Arrow f, Name "ref"]    -> ffi_import_str isa n f

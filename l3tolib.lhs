@@ -154,11 +154,11 @@ types) and the BitsN type are supported.
 >     Name "word"         -> "BitsN.fromInt(Word32.toInt("++ s ++"), 32)"
 >     _                   -> s
 > 
-> isValidFFIType :: Type -> Bool
-> isValidFFIType t = case t of
->     Ap ts               -> all isValidFFIType ts
->     Tuple ts            -> all isValidFFIType ts
->     Arrow ts            -> all isValidFFIType ts
+> isValidType :: Type -> Bool
+> isValidType t = case t of
+>     Ap ts               -> all isValidType ts
+>     Tuple ts            -> all isValidType ts
+>     Arrow ts            -> all isValidType ts
 >     Name "unit"         -> True
 >     Name "bool"         -> True
 >     Name "char"         -> True
@@ -177,15 +177,16 @@ types) and the BitsN type are supported.
 >     Name "Word32.word"  -> True
 >     Name "Word64.word"  -> True
 >     Name "word"         -> True
+>     Name "BitsN.nbit"   -> True
 >     _                   -> False
 > 
-> isValidArgFFIType :: Type -> Bool
-> isValidArgFFIType = isValidFFIType
+> isValidArgType :: Type -> Bool
+> isValidArgType = isValidType
 > 
-> isValidRetFFIType :: Type -> Bool
-> isValidRetFFIType t = case t of
+> isValidRetType :: Type -> Bool
+> isValidRetType t = case t of
 >     Tuple ts            -> False
->     _                   -> isValidFFIType t
+>     _                   -> isValidType t
 
 Simple helper to convert an SML identifier containing a "'" character into a
 valid SML FFI symbol name by replacing "'"'s with "_"'s.
@@ -199,7 +200,7 @@ Code generation for symbols (currently not working)
 > {-
 > ffi_symbol_public_str :: String -> String -> Type -> String
 > ffi_symbol_public_str isa n t
->     | isValidFFIType t = intercalate "\n" [
+>     | isValidType t = intercalate "\n" [
 >         "(* "++ isa ++ " - "++ n ++" *)",
 >         "_symbol \"" ++ isa ++ "_" ++ ffi_name n ++ "\" public : (unit -> " ++ show t ++ ") * (" ++ show t ++ " -> unit);"
 >         ]
@@ -209,7 +210,7 @@ Code generation for symbols (currently not working)
 > {-
 > ffi_symbol_external_str :: String -> String -> Type -> String
 > ffi_symbol_external_str isa n t
->     | isValidFFIType t = intercalate "\n" [
+>     | isValidType t = intercalate "\n" [
 >         "(* "++ isa ++ " - "++ n ++" *)",
 >         "_symbol \"" ++ isa ++ "_" ++ ffi_name n ++ "\" external : (unit -> " ++ show t ++ ") * (" ++ show t ++ " -> unit);"
 >         ]
@@ -226,7 +227,7 @@ declarations.
 
 > ffi_import_str :: String -> String -> [Type] -> String
 > ffi_import_str isa fname [arg_list, ret_type]
->     | all isValidArgFFIType arg_types && isValidRetFFIType ret_type && not (null arg_types) = intercalate "\n" [
+>     | all isValidArgType arg_types && isValidRetType ret_type && not (null arg_types) = intercalate "\n" [
 >         "(* "++ isa ++ " - "++ fname ++" *)",
 >         "val "++ fname ++"_ifc_import = _import \""++ isa ++"_ifc_"++ ffi_name fname ++"\" external : "++ (intercalate " * " $ fmap show ffi_arg_types) ++" -> "++ (show . l3_to_ffi_type $ ret_type) ++";",
 >         "fun "++ fname ++"_ifc_import_wrapper ("++ (intercalate ", " $ take orig_arg_nb args) ++") = "++ ffi_to_l3_cast (l3_to_ffi_type ret_type) (fname ++"_ifc_import ("++ intercalate ", " [l3_to_ffi_cast a b | (a,b) <- zip arg_types args] ++")"),
@@ -254,7 +255,7 @@ against a library generated using the produced FFI declarations.
 
 > ffi_export_str :: String -> String -> [Type] -> String
 > ffi_export_str isa fname [arg_list, ret_type]
->     | all isValidArgFFIType arg_types && isValidRetFFIType ret_type && not (null arg_types) = intercalate "\n" [
+>     | all isValidArgType arg_types && isValidRetType ret_type && not (null arg_types) = intercalate "\n" [
 >         "(* "++ isa ++ " - "++ fname ++" *)",
 >         "val "++ fname ++"_export_wrapper = _export \""++ isa ++"_"++ ffi_name fname ++"\" public : (("++ (intercalate " * " $ fmap show ffi_arg_types) ++") -> "++ (show . l3_to_ffi_type $ ret_type) ++") -> unit;",
 >         "val _ = "++ fname ++"_export_wrapper ( fn ("++(intercalate ", " $ take orig_arg_nb args)++") => "++ l3_to_ffi_cast ret_type (isa ++"."++ fname ++"("++intercalate ", " [ffi_to_l3_cast a b | (a,b) <- zip ffi_arg_types args]++")")++");"

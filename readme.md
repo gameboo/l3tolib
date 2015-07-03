@@ -23,5 +23,5 @@ can then be used as part of a *.mlb* mlton file to build a library using the
 TODO
 ====
 
-* Bug in the support of BitsN
+* ~Bug in the support of BitsN~
 * Automate the running of mlton

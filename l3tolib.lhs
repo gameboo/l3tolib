@@ -12,6 +12,8 @@ Import required haskell packages
 > import Data.Char (isDigit)
 > import Data.List
 > import System.Environment
+> import System.Process
+> import System.IO
 
 Types declarations and typeclasses instanciations
 =================================================
@@ -295,9 +297,21 @@ Program's entry point
 > 
 > main :: IO ()
 > main = do
->         [filename, isa] <- getArgs
->         decl_list <- parse_ml_sig filename
+>         [isa] <- getArgs
+>         decl_list <- parse_ml_sig $ isa ++ ".sig"
 >         --mapM_ print decl_list
 >         let ffi_decl_list = fmap (ffi_decl_str isa) decl_list
 >         writeFile (isa++"_ffi.sml") (intercalate "\n" $ filter (not . null) ffi_decl_list)
+>         (_, Just hout, _, _) <- createProcess (proc "l3" ["--lib-path"]){ std_out = CreatePipe }
+>         l3_lib_path <- hGetLine hout
+>         template_mlb <- readFile $ l3_lib_path ++ "/template.mlb"
+>         writeFile (isa++".mlb") (template_mlb++isa++".sig\n"++isa++".sml\n"++isa++"_ffi.sml")
+>         rawSystem "mlton" ["-output", "lib"++isa++".so",
+>                            "-default-ann", "allowFFI true",
+>                            "-mlb-path-var", "L3_LIB "++l3_lib_path,
+>                            "-format", "library",
+>                            "-export-header", isa++".h",
+>                            "-default-type", "intinf",
+>                            isa++".mlb"]
+>         return ()
 >         --mapM_ putStrLn $ intersperse "" ffi_decl
